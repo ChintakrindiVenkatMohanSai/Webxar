@@ -9,46 +9,127 @@ body{
 margin:0;
 overflow:hidden;
 background:black;
-font-family:Arial;
+font-family:Arial,Helvetica,sans-serif;
 }
 
-/* Camera */
+/* CAMERA */
 video{
 position:fixed;
 top:0;
 left:0;
-width:100%;
-height:100%;
+width:100vw;
+height:100vh;
 object-fit:cover;
-z-index:1;
+z-index:0;
 }
 
-/* AR Plates */
+/* AR PLATE */
 .arPlate{
 position:fixed;
 top:50%;
 left:50%;
-width:200px;
-height:200px;
+width:260px;
+height:180px;
 transform:translate(-50%,-50%);
 z-index:5;
-touch-action:none;
 cursor:grab;
-border-radius:10px;
+border-radius:12px;
+box-shadow:0 20px 50px rgba(0,0,0,.7);
+transition:.25s;
 }
 
-/* Control Panel */
+/* ACTIVE */
+.arPlate.active{
+outline:2px solid #00e5ff;
+}
+
+/* DELETE BUTTON */
+.deleteBtn{
+position:absolute;
+top:-12px;
+right:-12px;
+background:red;
+color:white;
+width:26px;
+height:26px;
+border-radius:50%;
+display:flex;
+align-items:center;
+justify-content:center;
+font-weight:bold;
+opacity:0;
+pointer-events:none;
+}
+
+.arPlate.active .deleteBtn{
+opacity:1;
+pointer-events:auto;
+}
+
+/* ===== RESIZE HANDLES (ALL SIDES) ===== */
+.handle{
+position:absolute;
+background:#00e5ff;
+border-radius:50%;
+width:14px;
+height:14px;
+opacity:0;
+pointer-events:none;
+}
+
+.arPlate.active .handle{
+opacity:1;
+pointer-events:auto;
+}
+
+/* Corners */
+.tl{top:-7px;left:-7px;cursor:nwse-resize;}
+.tr{top:-7px;right:-7px;cursor:nesw-resize;}
+.bl{bottom:-7px;left:-7px;cursor:nesw-resize;}
+.br{bottom:-7px;right:-7px;cursor:nwse-resize;}
+
+/* Edges */
+.tm{top:-7px;left:50%;transform:translateX(-50%);cursor:ns-resize;}
+.bm{bottom:-7px;left:50%;transform:translateX(-50%);cursor:ns-resize;}
+.ml{left:-7px;top:50%;transform:translateY(-50%);cursor:ew-resize;}
+.mr{right:-7px;top:50%;transform:translateY(-50%);cursor:ew-resize;}
+
+/* PANEL */
 .panel{
 position:fixed;
-bottom:30px;
+bottom:18px;
 left:50%;
 transform:translateX(-50%);
-background:rgba(0,0,0,.7);
-padding:20px;
-border-radius:15px;
+display:flex;
+align-items:center;
+gap:12px;
+flex-wrap:wrap;
+background:rgba(20,20,20,.55);
+padding:10px 20px;
+border-radius:50px;
 color:white;
 z-index:20;
-text-align:center;
+backdrop-filter:blur(14px);
+box-shadow:0 15px 40px rgba(0,0,0,.9);
+}
+
+/* BUTTON STYLE */
+button{
+background:linear-gradient(135deg,#00e5ff,#00bcd4);
+border:none;
+padding:8px 18px;
+border-radius:25px;
+color:white;
+font-weight:600;
+cursor:pointer;
+font-size:14px;
+box-shadow:0 6px 18px rgba(0,188,212,.5);
+transition:.25s;
+}
+
+button:hover{
+transform:translateY(-2px);
+box-shadow:0 10px 30px rgba(0,188,212,.8);
 }
 </style>
 </head>
@@ -56,89 +137,104 @@ text-align:center;
 <body>
 
 <div class="panel">
-🎨 Wall AR Studio<br><br>
+🎨 <b>Wall AR</b>
+RGB <input type="color" id="colorPick">
+<button onclick="addColor()">Add</button>
 
-RGB Color:
-<input type="color" id="colorPick">
-
-<button onclick="addColor()">Add Color</button><br><br>
-
-Upload Texture:
 <input type="file" id="texUpload">
-<button onclick="addTexture()">Add Texture</button>
+<button onclick="addTexture()">Texture</button>
 
+<button onclick="captureAR()">📸 Capture</button>
 </div>
 
 <script>
 
-/* ---------- CAMERA ---------- */
-
+/* CAMERA */
 async function startCamera(){
 try{
 const stream=await navigator.mediaDevices.getUserMedia({
 video:{facingMode:{ideal:"environment"}}
 });
-
 let video=document.createElement("video");
 video.srcObject=stream;
 video.autoplay=true;
 video.playsInline=true;
-document.body.appendChild(video);
-
+video.muted=true;
+document.body.prepend(video);
 }catch(e){
-alert("Camera permission needed");
+alert("Camera permission required (HTTPS needed)");
 }
 }
-
 window.onload=startCamera;
 
 
-/* ---------- CREATE COLOR PLATE ---------- */
-
-function addColor(){
-const color=document.getElementById("colorPick").value;
+/* CREATE PLATE */
+function createPlate(){
 
 let div=document.createElement("div");
 div.className="arPlate";
-div.style.background=color;
+
+div.onclick=e=>{
+e.stopPropagation();
+document.querySelectorAll('.arPlate')
+.forEach(p=>p.classList.remove('active'));
+div.classList.add('active');
+};
+
+/* DELETE */
+let del=document.createElement("div");
+del.className="deleteBtn";
+del.innerHTML="✖";
+del.onclick=()=>div.remove();
+div.appendChild(del);
+
+/* ALL 8 RESIZE HANDLES */
+["tl","tr","bl","br","tm","bm","ml","mr"].forEach(c=>{
+let h=document.createElement("div");
+h.className="handle "+c;
+div.appendChild(h);
+enableResize(div,h,c);
+});
 
 enableGesture(div);
 document.body.appendChild(div);
+
+return div;
 }
 
+/* CLICK OUTSIDE REMOVE ACTIVE */
+document.body.onclick=()=>{
+document.querySelectorAll('.arPlate')
+.forEach(p=>p.classList.remove('active'));
+};
 
-/* ---------- CREATE TEXTURE PLATE ---------- */
 
+/* ADD COLOR */
+function addColor(){
+let p=createPlate();
+p.style.background=document.getElementById("colorPick").value;
+}
+
+/* ADD TEXTURE */
 function addTexture(){
-
 let file=document.getElementById("texUpload").files[0];
 if(!file) return alert("Upload texture");
-
-let url=URL.createObjectURL(file);
-
-let div=document.createElement("div");
-div.className="arPlate";
-div.style.background=`url(${url}) center/cover`;
-
-enableGesture(div);
-document.body.appendChild(div);
+let p=createPlate();
+p.style.background=`url(${URL.createObjectURL(file)}) center/cover`;
 }
 
 
-/* ---------- GESTURE SYSTEM ---------- */
-
+/* DRAG + ZOOM + ROTATE */
 function enableGesture(el){
 
-let scale=1, rot=0, x=0, y=0;
+let scale=1,rot=0,x=0,y=0;
 let startX=0,startY=0,startDist=0,startAng=0;
 
-/* TOUCH */
 el.addEventListener("touchstart",e=>{
 if(e.touches.length==1){
 startX=e.touches[0].clientX-x;
 startY=e.touches[0].clientY-y;
 }
-
 if(e.touches.length==2){
 startDist=getDist(e);
 startAng=getAng(e);
@@ -166,10 +262,7 @@ startAng=a;
 update();
 });
 
-
-/* DESKTOP */
 let md=false;
-
 el.addEventListener("mousedown",e=>{
 md=true;
 startX=e.clientX-x;
@@ -185,14 +278,6 @@ update();
 
 window.addEventListener("mouseup",()=>md=false);
 
-/* WHEEL ZOOM */
-el.addEventListener("wheel",e=>{
-e.preventDefault();
-scale+=e.deltaY*-0.001;
-update();
-});
-
-
 function update(){
 el.style.transform=
 `translate(calc(-50% + ${x}px),
@@ -200,11 +285,49 @@ calc(-50% + ${y}px))
 scale(${scale})
 rotate(${rot}deg)`;
 }
-
 }
 
-/* Helpers */
 
+/* ===== RESIZE LOGIC (ALL SIDES) ===== */
+function enableResize(el,handle,type){
+
+let startX,startY,startW,startH;
+
+handle.onmousedown=handle.ontouchstart=function(e){
+
+e.stopPropagation();
+
+startX=e.clientX||e.touches[0].clientX;
+startY=e.clientY||e.touches[0].clientY;
+startW=el.offsetWidth;
+startH=el.offsetHeight;
+
+window.onmousemove=window.ontouchmove=function(e){
+
+let x=e.clientX||e.touches[0].clientX;
+let y=e.clientY||e.touches[0].clientY;
+
+let dx=x-startX;
+let dy=y-startY;
+
+/* Horizontal */
+if(type.includes("r")) el.style.width=startW+dx+"px";
+if(type.includes("l")) el.style.width=startW-dx+"px";
+
+/* Vertical */
+if(type.includes("b")) el.style.height=startH+dy+"px";
+if(type.includes("t")) el.style.height=startH-dy+"px";
+
+};
+
+window.onmouseup=window.ontouchend=function(){
+window.onmousemove=null;
+};
+};
+}
+
+
+/* HELPERS */
 function getDist(e){
 let dx=e.touches[0].clientX-e.touches[1].clientX;
 let dy=e.touches[0].clientY-e.touches[1].clientY;
@@ -216,6 +339,21 @@ let dx=e.touches[1].clientX-e.touches[0].clientX;
 let dy=e.touches[1].clientY-e.touches[0].clientY;
 return Math.atan2(dy,dx)*180/Math.PI;
 }
+
+
+/* CAPTURE */
+function captureAR(){
+html2canvas(document.body).then(canvas=>{
+let a=document.createElement("a");
+a.href=canvas.toDataURL("image/png");
+a.download="AR_Wall.png";
+a.click();
+});
+}
+
+let s=document.createElement("script");
+s.src="https://html2canvas.hertzen.com/dist/html2canvas.min.js";
+document.head.appendChild(s);
 
 </script>
 
