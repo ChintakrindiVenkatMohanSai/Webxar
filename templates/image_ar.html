@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AR Image Viewer</title>
+
+<style>
+body{
+margin:0;
+overflow:hidden;
+background:black;
+font-family:Arial;
+}
+
+/* CAMERA VIDEO */
+video{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+object-fit:cover;
+z-index:0; /* ⭐ changed from 1 */
+}
+
+/* AR IMAGE */
+#arImage{
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+width:280px;
+z-index:5;
+touch-action:none;
+user-select:none;
+cursor:grab;
+pointer-events:auto; /* ⭐ added */
+}
+
+/* TITLE */
+h2{
+position:fixed;
+top:12px;
+left:50%;
+transform:translateX(-50%);
+color:white;
+z-index:10;
+background:rgba(0,0,0,.5);
+padding:8px 18px;
+border-radius:12px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📷 AR Image Viewer</h2>
+
+<img id="arImage"
+src="{{ url_for('uploaded_file', filename=file) }}"
+onerror="this.style.display='none'">
+
+<script>
+
+const img=document.getElementById("arImage");
+
+/* ---------- CAMERA ---------- */
+async function startCamera(){
+try{
+const stream=await navigator.mediaDevices.getUserMedia({
+video:{
+facingMode:{ideal:"environment"},
+width:{ideal:1280},
+height:{ideal:720}
+}
+});
+
+const video=document.createElement("video");
+video.srcObject=stream;
+video.autoplay=true;
+video.playsInline=true;
+video.muted=true; /* mobile fix */
+video.style.zIndex="0"; /* ⭐ ensure behind */
+document.body.appendChild(video);
+
+}catch(err){
+alert("Camera permission denied");
+console.error(err);
+}
+}
+
+/* ---------- GESTURES ---------- */
+
+let scale=1,rotation=0,posX=0,posY=0;
+let startX=0,startY=0,startDist=0,startAngle=0;
+
+img.addEventListener("touchstart",e=>{
+if(e.touches.length===1){
+startX=e.touches[0].clientX-posX;
+startY=e.touches[0].clientY-posY;
+}
+if(e.touches.length===2){
+startDist=getDistance(e);
+startAngle=getAngle(e);
+}
+});
+
+img.addEventListener("touchmove",e=>{
+e.preventDefault();
+
+if(e.touches.length===1){
+posX=e.touches[0].clientX-startX;
+posY=e.touches[0].clientY-startY;
+}
+
+if(e.touches.length===2){
+let newDist=getDistance(e);
+scale*=newDist/startDist;
+startDist=newDist;
+
+let newAngle=getAngle(e);
+rotation+=newAngle-startAngle;
+startAngle=newAngle;
+}
+
+updateTransform();
+});
+
+/* DESKTOP DRAG */
+let mouseDown=false;
+
+img.addEventListener("mousedown",e=>{
+mouseDown=true;
+startX=e.clientX-posX;
+startY=e.clientY-posY;
+});
+
+window.addEventListener("mousemove",e=>{
+if(!mouseDown) return;
+posX=e.clientX-startX;
+posY=e.clientY-startY;
+updateTransform();
+});
+
+window.addEventListener("mouseup",()=>mouseDown=false);
+
+/* SCROLL ZOOM */
+img.addEventListener("wheel",e=>{
+e.preventDefault();
+scale+=e.deltaY*-0.001;
+scale=Math.min(Math.max(.2,scale),5);
+updateTransform();
+});
+
+/* APPLY TRANSFORM */
+function updateTransform(){
+img.style.transform=
+`translate(calc(-50% + ${posX}px),
+calc(-50% + ${posY}px))
+scale(${scale})
+rotate(${rotation}deg)`;
+}
+
+/* HELPERS */
+function getDistance(e){
+let dx=e.touches[0].clientX-e.touches[1].clientX;
+let dy=e.touches[0].clientY-e.touches[1].clientY;
+return Math.sqrt(dx*dx+dy*dy);
+}
+
+function getAngle(e){
+let dx=e.touches[1].clientX-e.touches[0].clientX;
+let dy=e.touches[1].clientY-e.touches[0].clientY;
+return Math.atan2(dy,dx)*180/Math.PI;
+}
+
+window.onload=startCamera;
+
+</script>
+
+</body>
+</html>

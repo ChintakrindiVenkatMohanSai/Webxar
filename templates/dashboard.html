@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="/static/style.css">
+<script type="module"
+src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+</head>
+
+<body>
+
+<header>
+<h1>🚀 AR/VR Studio Platform</h1>
+
+<nav>
+<a href="/create" class="btn">+ Create Project</a>
+<a href="/wall-ar" class="btn">🎨 Wall Colour AR</a>
+</nav>
+</header>
+
+<section class="projects">
+
+{% for p in projects %}
+<div class="card">
+
+<h3>{{p[1]}}</h3>
+
+{% if p[3]=='model' %}
+<model-viewer src="/uploads/{{p[2]}}" camera-controls></model-viewer>
+<a href="/model-ar/{{p[2]}}" class="btn">View AR</a>
+
+{% else %}
+<a href="/image-ar/{{p[2]}}" class="btn">Image AR</a>
+{% endif %}
+
+</div>
+{% endfor %}
+
+</section>
+
+</body>
+</html>
