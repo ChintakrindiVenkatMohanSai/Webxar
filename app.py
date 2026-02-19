@@ -15,6 +15,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 # ---------- DATABASE INIT ----------
+# ---------- DATABASE INIT ----------
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -45,8 +46,11 @@ def init_db():
     conn.close()
 
 
-init_db()
-
+@app.before_request
+def initialize_db_once():
+    if not hasattr(app, "db_initialized"):
+        init_db()
+        app.db_initialized = True
 
 # ---------- DASHBOARD ----------
 @app.route("/")
