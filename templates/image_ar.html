@@ -4,15 +4,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AR Image Viewer</title>
 
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
 <style>
 body{
 margin:0;
 overflow:hidden;
 background:black;
-font-family:Arial,Helvetica,sans-serif;
+font-family:Arial;
 }
 
-/* CAMERA */
 video{
 position:fixed;
 top:0;
@@ -23,7 +24,6 @@ object-fit:cover;
 z-index:0;
 }
 
-/* IMAGE PLATE */
 .arImage{
 position:fixed;
 top:50%;
@@ -37,163 +37,69 @@ touch-action:none;
 cursor:grab;
 }
 
-/* ACTIVE BORDER */
-.arImage.active{
-outline:2px solid cyan;
-}
-
-/* DELETE BUTTON */
-.deleteBtn{
-position:absolute;
-top:-12px;
-right:-12px;
-background:red;
-color:white;
-width:28px;
-height:28px;
-border-radius:50%;
-display:flex;
-align-items:center;
-justify-content:center;
-font-weight:bold;
-cursor:pointer;
-opacity:0;
-}
-
-.arImage.active .deleteBtn{
-opacity:1;
-}
-
-/* CAPTURE BUTTON */
 .captureBtn{
 position:fixed;
 bottom:20px;
 left:50%;
 transform:translateX(-50%);
-background:linear-gradient(135deg,#00e5ff,#00bcd4);
+background:#00bcd4;
 padding:12px 28px;
 border-radius:30px;
 color:white;
-font-weight:bold;
 border:none;
-cursor:pointer;
+font-weight:bold;
 z-index:20;
-box-shadow:0 10px 30px rgba(0,188,212,.6);
 }
-
 </style>
 </head>
 
 <body>
 
-<!-- IMAGE -->
-<div class="arImage" id="plate">
-<img src="{{ url_for('uploaded_file', filename=file) }}"
-     style="width:100%;border-radius:14px">
+<!-- CAMERA -->
+<video id="cam" autoplay playsinline muted></video>
 
-<div class="deleteBtn">✖</div>
+<!-- AR IMAGE -->
+<div class="arImage" id="plate">
+<img src="{{ url_for('uploaded_file', filename=filename) }}"
+style="width:100%;border-radius:14px">
 </div>
 
-<!-- CAPTURE BUTTON -->
-<button class="captureBtn" onclick="captureAR()">
-📸 Capture AR Photo
-</button>
+<button class="captureBtn" onclick="captureAR()">📸 Capture</button>
 
 <script>
 
 /* CAMERA START */
-async function startCamera(){
-try{
-const stream=await navigator.mediaDevices.getUserMedia({
-video:{facingMode:{ideal:"environment"}}
+navigator.mediaDevices.getUserMedia({
+video:{facingMode:"environment"}
+}).then(stream=>{
+document.getElementById("cam").srcObject=stream;
+}).catch(()=>{
+alert("Camera permission needed.");
 });
 
-const video=document.createElement("video");
-video.srcObject=stream;
-video.autoplay=true;
-video.playsInline=true;
-video.muted=true;
-document.body.prepend(video);
 
-}catch(e){
-alert("Camera permission needed (HTTPS required)");
-}
-}
-window.onload=startCamera;
+/* DRAG IMAGE */
+let plate=document.getElementById("plate");
+let x=0,y=0,scale=1,rot=0,startX,startY;
 
-
-/* IMAGE CONTROL */
-
-const plate=document.getElementById("plate");
-const del=plate.querySelector(".deleteBtn");
-
-plate.onclick=e=>{
-e.stopPropagation();
-plate.classList.add("active");
-};
-
-document.body.onclick=()=>plate.classList.remove("active");
-del.onclick=()=>plate.remove();
-
-
-/* DRAG / SCALE / ROTATE */
-
-let scale=1,rot=0,x=0,y=0;
-let startX,startY,startDist,startAng;
-
-plate.addEventListener("touchstart",e=>{
-if(e.touches.length==1){
-startX=e.touches[0].clientX-x;
-startY=e.touches[0].clientY-y;
-}
-if(e.touches.length==2){
-startDist=getDist(e);
-startAng=getAng(e);
-}
-});
-
-plate.addEventListener("touchmove",e=>{
-e.preventDefault();
-
-if(e.touches.length==1){
-x=e.touches[0].clientX-startX;
-y=e.touches[0].clientY-startY;
-}
-
-if(e.touches.length==2){
-let d=getDist(e);
-scale*=d/startDist;
-startDist=d;
-
-let a=getAng(e);
-rot+=a-startAng;
-startAng=a;
-}
-
-update();
-});
-
-let md=false;
-plate.addEventListener("mousedown",e=>{
-md=true;
+plate.onmousedown=e=>{
 startX=e.clientX-x;
 startY=e.clientY-y;
-});
 
-window.addEventListener("mousemove",e=>{
-if(!md)return;
+document.onmousemove=e=>{
 x=e.clientX-startX;
 y=e.clientY-startY;
 update();
-});
+};
 
-window.addEventListener("mouseup",()=>md=false);
+document.onmouseup=()=>document.onmousemove=null;
+};
 
-plate.addEventListener("wheel",e=>{
+plate.onwheel=e=>{
 e.preventDefault();
 scale+=e.deltaY*-0.001;
 update();
-});
+};
 
 function update(){
 plate.style.transform=
@@ -202,35 +108,14 @@ scale(${scale}) rotate(${rot}deg)`;
 }
 
 
-/* CAPTURE AR PHOTO */
-
+/* CAPTURE AR */
 function captureAR(){
 html2canvas(document.body).then(canvas=>{
-let a=document.createElement("a");
-a.href=canvas.toDataURL("image/png");
-a.download="AR_Image.png";
-a.click();
+let link=document.createElement("a");
+link.download="AR_Image.png";
+link.href=canvas.toDataURL();
+link.click();
 });
-}
-
-/* LOAD SCREENSHOT LIBRARY */
-let s=document.createElement("script");
-s.src="https://html2canvas.hertzen.com/dist/html2canvas.min.js";
-document.head.appendChild(s);
-
-
-/* HELPERS */
-
-function getDist(e){
-let dx=e.touches[0].clientX-e.touches[1].clientX;
-let dy=e.touches[0].clientY-e.touches[1].clientY;
-return Math.sqrt(dx*dx+dy*dy);
-}
-
-function getAng(e){
-let dx=e.touches[1].clientX-e.touches[0].clientX;
-let dy=e.touches[1].clientY-e.touches[0].clientY;
-return Math.atan2(dy,dx)*180/Math.PI;
 }
 
 </script>

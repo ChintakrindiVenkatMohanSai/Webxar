@@ -43,7 +43,6 @@ def init_db():
     conn.close()
 
 
-# IMPORTANT: call directly (Flask 3.x compatible)
 init_db()
 
 
@@ -54,6 +53,18 @@ def dashboard():
     projects = conn.execute("SELECT * FROM projects").fetchall()
     conn.close()
     return render_template("dashboard.html", projects=projects)
+
+
+# ---------- IMAGE AR ROUTE (FIXED) ----------
+@app.route("/image-ar/<filename>")
+def image_ar(filename):
+    return render_template("image_ar.html", filename=filename)
+
+
+# ---------- MODEL AR ROUTE ----------
+@app.route("/model-ar/<filename>")
+def model_ar(filename):
+    return render_template("model_ar.html", filename=filename)
 
 
 # ---------- CREATE PROJECT WITH PIN ----------
