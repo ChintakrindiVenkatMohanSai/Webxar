@@ -5,37 +5,43 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads")
+# Base paths (important for Render)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+DB_PATH = os.path.join(BASE_DIR, "projects.db")
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-# ---------- DATABASE ----------
+# ---------- DATABASE INIT ----------
 def init_db():
-    with sqlite3.connect("projects.db") as conn:
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
 
-        conn.execute("""
-        CREATE TABLE IF NOT EXISTS projects(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            file TEXT,
-            type TEXT
-        )
-        """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS projects(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        file TEXT,
+        type TEXT
+    )
+    """)
 
-        conn.execute("""
-        CREATE TABLE IF NOT EXISTS auth(
-            id INTEGER PRIMARY KEY,
-            pin TEXT,
-            email TEXT
-        )
-        """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS auth(
+        id INTEGER PRIMARY KEY,
+        pin TEXT,
+        email TEXT
+    )
+    """)
 
-        conn.execute("""
-        INSERT OR IGNORE INTO auth(id,pin,email)
-        VALUES(1,'1234','admin@email.com')
-        """)
+    c.execute("""
+    INSERT OR IGNORE INTO auth(id,pin,email)
+    VALUES(1,'1234','admin@email.com')
+    """)
 
-        conn.commit()
+    conn.commit()
+    conn.close()
 
 init_db()
 
@@ -43,8 +49,9 @@ init_db()
 # ---------- DASHBOARD ----------
 @app.route("/")
 def dashboard():
-    with sqlite3.connect("projects.db") as conn:
-        projects = conn.execute("SELECT * FROM projects").fetchall()
+    conn = sqlite3.connect(DB_PATH)
+    projects = conn.execute("SELECT * FROM projects").fetchall()
+    conn.close()
     return render_template("dashboard.html", projects=projects)
 
 
@@ -52,11 +59,9 @@ def dashboard():
 @app.route("/create")
 def create_project():
 
-    # If PIN not verified -> show PIN page first
     if not session.get("create_auth"):
         return render_template("pin_login.html", next_page="/create")
 
-    # After PIN success -> upload page
     return render_template("create_project.html")
 
 
@@ -67,8 +72,9 @@ def verify_pin():
     pin = request.form.get("pin")
     next_page = request.form.get("next_page")
 
-    with sqlite3.connect("projects.db") as conn:
-        row = conn.execute("SELECT pin FROM auth WHERE id=1").fetchone()
+    conn = sqlite3.connect(DB_PATH)
+    row = conn.execute("SELECT pin FROM auth WHERE id=1").fetchone()
+    conn.close()
 
     if row and row[0] == pin:
         session["create_auth"] = True
@@ -94,36 +100,38 @@ def save():
     filename = secure_filename(file.filename)
     file.save(os.path.join(UPLOAD_FOLDER, filename))
 
-    with sqlite3.connect("projects.db") as conn:
-        conn.execute(
-            "INSERT INTO projects(name,file,type) VALUES(?,?,?)",
-            (name, filename, ptype)
-        )
-        conn.commit()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO projects(name,file,type) VALUES(?,?,?)",
+        (name, filename, ptype)
+    )
+    conn.commit()
+    conn.close()
 
     return redirect("/")
 
 
-# ---------- DELETE ----------
+# ---------- DELETE PROJECT ----------
 @app.route("/delete/<int:id>")
 def delete_project(id):
 
     if not session.get("create_auth"):
         return redirect("/create")
 
-    with sqlite3.connect("projects.db") as conn:
-        project = conn.execute(
-            "SELECT file FROM projects WHERE id=?",
-            (id,)
-        ).fetchone()
+    conn = sqlite3.connect(DB_PATH)
+    project = conn.execute(
+        "SELECT file FROM projects WHERE id=?",
+        (id,)
+    ).fetchone()
 
-        if project:
-            filepath = os.path.join(UPLOAD_FOLDER, project[0])
-            if os.path.exists(filepath):
-                os.remove(filepath)
+    if project:
+        filepath = os.path.join(UPLOAD_FOLDER, project[0])
+        if os.path.exists(filepath):
+            os.remove(filepath)
 
-        conn.execute("DELETE FROM projects WHERE id=?", (id,))
-        conn.commit()
+    conn.execute("DELETE FROM projects WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
 
     return redirect("/")
 
@@ -141,7 +149,7 @@ def wall_ar():
     return render_template("wall_ar.html")
 
 
-# ---------- SERVE UPLOADS ----------
+# ---------- SERVE UPLOAD FILES ----------
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
 
@@ -153,8 +161,7 @@ def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 
-# ---------- RUN ----------
+# ---------- RUN LOCAL / RENDER SAFE ----------
 if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
