@@ -1,3 +1,4 @@
+venv/
+__pycache__/
 projects.db
 uploads/*
-__pycache__/
