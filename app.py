@@ -5,7 +5,6 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# Base paths (important for Render)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 DB_PATH = os.path.join(BASE_DIR, "projects.db")
@@ -43,6 +42,8 @@ def init_db():
     conn.commit()
     conn.close()
 
+
+# IMPORTANT: call directly (Flask 3.x compatible)
 init_db()
 
 
@@ -58,17 +59,14 @@ def dashboard():
 # ---------- CREATE PROJECT WITH PIN ----------
 @app.route("/create")
 def create_project():
-
     if not session.get("create_auth"):
         return render_template("pin_login.html", next_page="/create")
-
     return render_template("create_project.html")
 
 
 # ---------- VERIFY PIN ----------
 @app.route("/verify-pin", methods=["POST"])
 def verify_pin():
-
     pin = request.form.get("pin")
     next_page = request.form.get("next_page")
 
@@ -86,7 +84,6 @@ def verify_pin():
 # ---------- SAVE PROJECT ----------
 @app.route("/save", methods=["POST"])
 def save():
-
     if not session.get("create_auth"):
         return redirect("/create")
 
@@ -111,10 +108,9 @@ def save():
     return redirect("/")
 
 
-# ---------- DELETE PROJECT ----------
+# ---------- DELETE ----------
 @app.route("/delete/<int:id>")
 def delete_project(id):
-
     if not session.get("create_auth"):
         return redirect("/create")
 
@@ -149,10 +145,9 @@ def wall_ar():
     return render_template("wall_ar.html")
 
 
-# ---------- SERVE UPLOAD FILES ----------
+# ---------- SERVE UPLOADS ----------
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
-
     path = os.path.join(UPLOAD_FOLDER, filename)
 
     if not os.path.exists(path):
@@ -161,8 +156,7 @@ def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 
-# ---------- RUN LOCAL / RENDER SAFE ----------
+# ---------- LOCAL RUN ----------
 if __name__ == "__main__":
-
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
