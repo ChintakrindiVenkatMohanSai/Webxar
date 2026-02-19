@@ -205,7 +205,7 @@ camera.aspect = window.innerWidth/window.innerHeight;
 camera.updateProjectionMatrix();
 });
 
-const projectCount = {{ projects|length|default(0) }};
+const projectCount = {{ projects|length if projects else 0 }};
 
 function counter(id,target){
 let c=0;
