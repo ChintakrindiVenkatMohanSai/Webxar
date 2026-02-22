@@ -64,8 +64,7 @@ def dashboard():
 # ---------- IMAGE AR ----------
 @app.route("/image-ar/<filename>")
 def image_ar(filename):
-    return render_template("image_ar.html", file=filename)
-
+    return render_template("image_ar.html", filename=filename)
 
 # ---------- MODEL AR ----------
 @app.route("/model-ar/<filename>")
